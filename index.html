@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Card Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #6a11cb, #2575fc, #ff758c);
+      background-size: 400% 400%;
+      animation: gradientMove 10s ease infinite;
+    }
+
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .info {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .game-board {
+      display: grid;
+      grid-gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      width: 80px;
+      height: 80px;
+      background: #333;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 28px;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: transform 0.3s;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+    }
+
+    .flipped {
+      background: #4CAF50;
+    }
+
+    .matched {
+      background: #2196F3;
+      cursor: default;
+    }
+
+    .game-over {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 10px 0;
+      color: yellow;
+      text-align: center;
+      text-shadow: 2px 2px 5px black;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #ff6a00;
+      color: white;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #ff9100;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 Memory Card Game</h1>
+  <div class="info">
+    <div>⏱️ Waktu: <span id="timer">60</span>s</div>
+    <div>⭐ Skor: <span id="score">0</span></div>
+    <div>🏆 Level: <span id="level">1</span></div>
+  </div>
+  <div class="game-board" id="gameBoard"></div>
+  <div id="gameOver" class="game-over"></div>
+  <button id="nextBtn" style="display:none;"></button>
+
+  <script>
+    const allSymbols = ["🍎","🍌","🍇","🍓","🍒","🍉","🍍","🥝","🥑","🍋","🍊","🥥","🥕","🌽","🍆","🥔"];
+    let level = 1;
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval;
+    let flippedCards = [];
+    let lockBoard = false;
+    const gameBoard = document.getElementById("gameBoard");
+    const scoreDisplay = document.getElementById("score");
+    const timerDisplay = document.getElementById("timer");
+    const gameOverText = document.getElementById("gameOver");
+    const levelDisplay = document.getElementById("level");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function startGame() {
+      // reset
+      clearInterval(timerInterval);
+      gameBoard.innerHTML = "";
+      gameOverText.textContent = "";
+      nextBtn.style.display = "none";
+      flippedCards = [];
+      lockBoard = false;
+      timeLeft = 60;
+      timerDisplay.textContent = timeLeft;
+      levelDisplay.textContent = level;
+
+      // atur jumlah kartu sesuai level
+      let pairs = level === 1 ? 8 : level === 2 ? 10 : 12;
+      let gridCols = level === 1 ? 4 : level === 2 ? 5 : 6;
+      let symbols = allSymbols.slice(0, pairs);
+      let cards = [...symbols, ...symbols].sort(() => Math.random() - 0.5);
+
+      gameBoard.style.gridTemplateColumns = `repeat(${gridCols}, 80px)`;
+
+      cards.forEach(symbol => {
+        const card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.symbol = symbol;
+        card.textContent = "?";
+        card.addEventListener("click", flipCard);
+        gameBoard.appendChild(card);
+      });
+
+      // mulai timer
+      startTimer();
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          endGame(false);
+        }
+      }, 1000);
+    }
+
+    function flipCard() {
+      if (lockBoard) return;
+      if (this.classList.contains("flipped") || this.classList.contains("matched")) return;
+
+      this.classList.add("flipped");
+      this.textContent = this.dataset.symbol;
+      flippedCards.push(this);
+
+      if (flippedCards.length === 2) {
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      if (card1.dataset.symbol === card2.dataset.symbol) {
+        card1.classList.add("matched");
+        card2.classList.add("matched");
+        score += 10;
+        updateScore();
+        checkWin();
+      } else {
+        score -= 2;
+        updateScore();
+        lockBoard = true;
+        setTimeout(() => {
+          card1.classList.remove("flipped");
+          card2.classList.remove("flipped");
+          card1.textContent = "?";
+          card2.textContent = "?";
+          lockBoard = false;
+        }, 800);
+      }
+      flippedCards = [];
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent = score;
+    }
+
+    function checkWin() {
+      const matchedCards = document.querySelectorAll(".matched");
+      if (matchedCards.length === gameBoard.children.length) {
+        clearInterval(timerInterval);
+        endGame(true);
+      }
+    }
+
+    function endGame(win) {
+      if (win) {
+        gameOverText.textContent = `🎉 Level ${level} Selesai! Skor: ${score}`;
+        if (level < 3) {
+          nextBtn.textContent = "➡️ Lanjut Level " + (level + 1);
+          nextBtn.style.display = "inline-block";
+          nextBtn.onclick = () => {
+            level++;
+            startGame();
+          };
+        } else {
+          gameOverText.textContent += "\n🏆 Semua Level Berhasil! Skor Akhir: " + score;
+        }
+      } else {
+        gameOverText.textContent = `💀 Waktu Habis! Skor: ${score}`;
+        nextBtn.textContent = "🔄 Coba Lagi";
+        nextBtn.style.display = "inline-block";
+        nextBtn.onclick = () => {
+          level = 1;
+          score = 0;
+          updateScore();
+          startGame();
+        };
+      }
+    }
+
+    // mulai game pertama kali
+    startGame();
+  </script>
+</body>
+</html>
